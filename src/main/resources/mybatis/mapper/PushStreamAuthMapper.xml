@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.starnet.ipcmonitorcloud.database.mapper.PushStreamAuthMapper">
+    <resultMap id="Entity" type="com.starnet.ipcmonitorcloud.database.model.PushStreamAuthEntity">
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <result column="push_auth_token" property="pushAuthToken" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <sql id="TableName">
+        tb_push_stream_auth
+    </sql>
+
+    <sql id="ColumnName">
+        id, push_auth_token
+    </sql>
+
+    <select id="selectAll" resultMap="Entity">
+        select <include refid="ColumnName"/> from <include refid="TableName"/>
+    </select>
+
+
+</mapper>

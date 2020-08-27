@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.starnet.ipcmonitorcloud.database.mapper.UserAccountMapper">
+    <resultMap id="Entity" type="com.starnet.ipcmonitorcloud.database.model.UserAccountEntity">
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <result column="username" property="username" jdbcType="VARCHAR"/>
+        <result column="password" property="password" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <sql id="TableName">
+        tb_user_account
+    </sql>
+
+    <sql id="ColumnName">
+        id, username, password
+    </sql>
+
+    <select id="selectByUsername" resultMap="Entity">
+        select <include refid="ColumnName"/> from <include refid="TableName"/>
+        where username = #{username}
+    </select>
+
+    <select id="selectAll" resultMap="Entity">
+        select <include refid="ColumnName"/> from <include refid="TableName"/>
+    </select>
+
+
+</mapper>
