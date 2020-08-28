@@ -35,7 +35,8 @@ public class MqRequest {
         /**
          * 停止推流命令
          */
-        STOP_MONITOR(2);
+        STOP_MONITOR(2),
+        GET_IPC_LIST(3);
 
         private int type;
 

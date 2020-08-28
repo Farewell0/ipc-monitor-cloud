@@ -41,17 +41,13 @@ public class MqProducer {
                 throw new MqException(MqStatus.LOCAL_RESPONSE_ERROR);
             }
             return JsonUtils.fromJson(reply, clazz);
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
-            log.error(e.getMessage());
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error(e.getMessage());
         }
         return null;
     }
 
     public String sendAndReceive(String queueName, String message) {
-        // TODO 添加ActiveMQ超时设置
         return jmsMessagingTemplate.convertSendAndReceive(queueName, message, String.class);
     }
 

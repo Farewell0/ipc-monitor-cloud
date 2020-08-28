@@ -1,5 +1,7 @@
 package com.starnet.ipcmonitorcloud.cache;
 
+import java.util.Set;
+
 /**
  * RedisServiceApi
  *
@@ -17,4 +19,6 @@ public interface RedisServiceApi {
     boolean exist(Object key);
 
     boolean remove(Object key);
+
+    Set<Object> getKeys(String pattern);
 }

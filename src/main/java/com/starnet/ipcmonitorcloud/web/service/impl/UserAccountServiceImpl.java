@@ -1,10 +1,11 @@
 package com.starnet.ipcmonitorcloud.web.service.impl;
 
+import com.starnet.ipcmonitorcloud.config.MyConfigProperties;
 import com.starnet.ipcmonitorcloud.database.mapper.UserAccountMapper;
 import com.starnet.ipcmonitorcloud.database.model.UserAccountEntity;
 import com.starnet.ipcmonitorcloud.utils.Md5Utils;
-import com.starnet.ipcmonitorcloud.web.model.HttpResponse;
-import com.starnet.ipcmonitorcloud.web.model.HttpStatus;
+import com.starnet.ipcmonitorcloud.web.response.HttpResponse;
+import com.starnet.ipcmonitorcloud.web.response.HttpStatus;
 import com.starnet.ipcmonitorcloud.web.service.UserAccountService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +20,8 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 public class UserAccountServiceImpl implements UserAccountService {
+    @Autowired
+    private MyConfigProperties myConfigProperties;
 
     @Autowired
     private UserAccountMapper userAccountMapper;
@@ -29,7 +32,7 @@ public class UserAccountServiceImpl implements UserAccountService {
         if (null != entity) {
             boolean flag = getEncryptPassword(password).equals(entity.getPassword());
             if (flag) {
-                return new HttpResponse<>(generateLoginToken());
+                return new HttpResponse<>(HttpStatus.OK.getCode(), HttpStatus.OK.getMessage(), generateLoginToken());
             } else {
                 return new HttpResponse<>(HttpStatus.UNAUTHORIZED, "Login user error");
             }
@@ -38,7 +41,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     private String generateLoginToken() {
-        return Md5Utils.getMd5("STARnet002396");
+        return Md5Utils.getMd5(myConfigProperties.getLoginToken());
     }
 
     @Override

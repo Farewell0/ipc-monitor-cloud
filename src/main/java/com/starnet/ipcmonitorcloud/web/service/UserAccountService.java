@@ -1,6 +1,6 @@
 package com.starnet.ipcmonitorcloud.web.service;
 
-import com.starnet.ipcmonitorcloud.web.model.HttpResponse;
+import com.starnet.ipcmonitorcloud.web.response.HttpResponse;
 
 /**
  * UserAccountService

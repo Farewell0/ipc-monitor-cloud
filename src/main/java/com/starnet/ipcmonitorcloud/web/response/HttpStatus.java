@@ -1,4 +1,4 @@
-package com.starnet.ipcmonitorcloud.web.model;
+package com.starnet.ipcmonitorcloud.web.response;
 
 /**
  * HttpStatus
@@ -14,7 +14,10 @@ public enum HttpStatus{
     UNAUTHORIZED(401, "Unauthorized! You have no permission to access"),
     REQUEST_PARAMS_ERROR(402, "Request params error"),
     NOT_FOUND(404, "Not found"),
-    SERVER_ERROR(500, "Server error");
+    SERVER_ERROR(500, "Server error"),
+    PUSH_STREAM_FAIL(501, "Push stream fail"),
+    GET_IPC_LIST_FAIL(502, "Get ipc list fail"),
+    GET_PUSH_STREAM_LIST_FAIL(503, "Get push stream list fail");
 
     private int code;
     private String message;

@@ -1,8 +1,8 @@
 package com.starnet.ipcmonitorcloud.web.config;
 
 import com.starnet.ipcmonitorcloud.exception.AuthException;
-import com.starnet.ipcmonitorcloud.web.model.HttpResponse;
-import com.starnet.ipcmonitorcloud.web.model.HttpStatus;
+import com.starnet.ipcmonitorcloud.web.response.HttpResponse;
+import com.starnet.ipcmonitorcloud.web.response.HttpStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;

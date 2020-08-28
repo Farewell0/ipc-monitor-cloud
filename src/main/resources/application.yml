@@ -1,14 +1,15 @@
 server:
   port: 9099
 
-
 myconfig:
   command-queue-name: CommandQueue
-  push-to-nginx-stream-prefix: rtmp://192.168.11.74:1935/hls/stream_
+  push-to-nginx-stream-prefix: rtmp://192.168.11.235:1935/hls/stream_
+  nginx-access-log-path: /home/wzzfarewell/dev/nginx/logs/date_log/new_access_log.log
+  login-token: STARnet002396
 
 spring:
   activemq:
-    broker-url: tcp://192.168.11.73:61616
+    broker-url: tcp://192.168.11.235:61616
     user: test
     password: 123456
     send-timeout: 3000
@@ -16,9 +17,9 @@ spring:
   datasource:
     username: starnet
     password: STARnet002396
-    url: jdbc:mysql://127.0.0.1:3306/ipc_monitor?useUnicode=true&charaterEncoding=utf8mb4&useSSL=false&serverTimezone=Asia/Shanghai&autoReconnect=true&allowMultiQueries=true&cachePrepStmts=true&prepStmtCacheSqlLimit=2048&prepStmtCacheSize=256&useServerPrepStmts=true
+    url: jdbc:mysql://192.168.11.73:3306/ipc_monitor?useUnicode=true&charaterEncoding=utf8mb4&useSSL=false&serverTimezone=Asia/Shanghai&autoReconnect=true&allowMultiQueries=true&cachePrepStmts=true&prepStmtCacheSqlLimit=2048&prepStmtCacheSize=256&useServerPrepStmts=true
   redis:
-    host: localhost
+    host: 127.0.0.1
     port: 6379
     password: STARnet002396
   jms:

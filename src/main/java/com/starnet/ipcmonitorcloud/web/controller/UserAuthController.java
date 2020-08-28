@@ -1,8 +1,8 @@
 package com.starnet.ipcmonitorcloud.web.controller;
 
 import com.starnet.ipcmonitorcloud.web.config.NoToken;
-import com.starnet.ipcmonitorcloud.web.model.HttpResponse;
-import com.starnet.ipcmonitorcloud.web.model.HttpStatus;
+import com.starnet.ipcmonitorcloud.web.response.HttpResponse;
+import com.starnet.ipcmonitorcloud.web.response.HttpStatus;
 import com.starnet.ipcmonitorcloud.web.service.UserAccountService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;

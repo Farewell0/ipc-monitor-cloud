@@ -1,8 +1,9 @@
 package com.starnet.ipcmonitorcloud.web.service.impl;
 
-import com.google.common.collect.Lists;
-import com.starnet.ipcmonitorcloud.cache.model.PushStreamInfo;
-import com.starnet.ipcmonitorcloud.cache.model.StreamInfoCache;
+import com.starnet.ipcmonitorcloud.cache.service.IpcCacheService;
+import com.starnet.ipcmonitorcloud.entity.IpcEntity;
+import com.starnet.ipcmonitorcloud.entity.PushStreamEntity;
+import com.starnet.ipcmonitorcloud.entity.StreamInfoEntity;
 import com.starnet.ipcmonitorcloud.cache.service.PushStreamAuthCacheService;
 import com.starnet.ipcmonitorcloud.cache.service.StreamInfoCacheService;
 import com.starnet.ipcmonitorcloud.config.MyConfigProperties;
@@ -12,17 +13,16 @@ import com.starnet.ipcmonitorcloud.exception.MqException;
 import com.starnet.ipcmonitorcloud.mq.MqResponse;
 import com.starnet.ipcmonitorcloud.mq.MqProducer;
 import com.starnet.ipcmonitorcloud.mq.MqStatus;
+import com.starnet.ipcmonitorcloud.mq.component.MqIpcComponent;
+import com.starnet.ipcmonitorcloud.web.response.HttpResponse;
+import com.starnet.ipcmonitorcloud.web.response.HttpStatus;
 import com.starnet.ipcmonitorcloud.web.service.MonitorService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -50,19 +50,51 @@ public class MonitorServiceImpl implements MonitorService {
     @Autowired
     private StreamInfoCacheService streamInfoCacheService;
 
+    @Autowired
+    private IpcCacheService ipcCacheService;
+
+    @Autowired
+    private MqIpcComponent mqIpcComponent;
+
+    /**
+     * 推流id，用来区分不同的推流
+     */
     private AtomicInteger streamId = new AtomicInteger();
 
-    private Map<String, List<String>> streamMap = new ConcurrentHashMap<>(16);
-
+    /**
+     * 定时检测某个流是否有人在播放，如果没有直接停止这条拉流的推流
+     */
+    @Scheduled(initialDelay = 1000, fixedDelayString = "300000")
+    public void checkStreamOnPlay() {
+        log.info("Check all stream on play now...");
+        List<StreamInfoEntity> streamInfoEntities = streamInfoCacheService.getAllStreamCache();
+        streamInfoEntities.forEach(streamInfoEntity -> {
+            PushStreamEntity pushStreamEntity = streamInfoEntity.getPushStreamEntity();
+            if (pushStreamEntity.getRtmpObserverNum() <= 0 && pushStreamEntity.getHlsObserverNum() <= 0) {
+                // 这个流已经没有人在看了，发起停止推流命令并从缓存中移除
+                stopPushStream(streamInfoEntity.getIpcEntity());
+            }
+        });
+    }
 
     @Override
-    public MqResponse startMonitor(String ipcAddr) {
-        if (streamMap.containsKey(ipcAddr)) {
-            return new MqResponse(MqStatus.OK, "This ipc stream is already push");
-        }
+    public List<IpcEntity> getIpcList() {
+        return mqIpcComponent.getIpcList();
+    }
 
+    @Override
+    public HttpResponse<PushStreamEntity> startMonitor(Integer id) {
+        String ipcId = String.valueOf(id);
+        // 判断是否已经在推流
+        if (streamInfoCacheService.existStreamInfo(ipcId)) {
+            return new HttpResponse<>(HttpStatus.OK.getCode(), "This ipc stream is already push",
+                    streamInfoCacheService.getStreamInfo(ipcId).getPushStreamEntity());
+        }
+        IpcEntity ipcEntity = ipcCacheService.getIpcCache(ipcId);
+        String ipcAddr = ipcEntity.getRtspAddr();
         StartMonitorReq startMonitorReq = new StartMonitorReq();
         startMonitorReq.setIpcAddr(ipcAddr);
+        // 生成推流地址
         String pushAddr = myConfigProperties.getPushToNginxStreamPrefix() + incrementStreamId();
         startMonitorReq.setPushAddr(pushAddr);
         MqResponse response = null;
@@ -71,47 +103,72 @@ public class MonitorServiceImpl implements MonitorService {
         } catch (MqException e) {
             log.error(e.getMessage());
             decrementStreamId();
-            return new MqResponse(e.getMqStatus());
+            return new HttpResponse<>(HttpStatus.PUSH_STREAM_FAIL);
         }
         if (response.getStatus() == MqStatus.OK.getCode()) {
-            streamMap.put(ipcAddr, Lists.newArrayList(pushAddr));
-            createStreamInfoCache(ipcAddr, pushAddr);
+            // 将成功推流的流放入缓存
+            StreamInfoEntity streamInfoEntity = new StreamInfoEntity();
+            streamInfoEntity.setIpcEntity(ipcEntity);
+            PushStreamEntity pushStreamEntity = initPushStreamEntity(pushAddr);
+            streamInfoEntity.setPushStreamEntity(pushStreamEntity);
+            streamInfoCacheService.setStreamInfo(streamInfoEntity);
+            return new HttpResponse<>(HttpStatus.OK.getCode(), "OK", pushStreamEntity);
         } else {
             decrementStreamId();
+            return new HttpResponse<>(response.getStatus(), response.getMessage());
         }
-        return response;
+    }
+
+    private PushStreamEntity initPushStreamEntity(String pushAddr) {
+        PushStreamEntity pushStreamEntity = new PushStreamEntity();
+        pushStreamEntity.setPushAddr(pushAddr);
+        String[] arr = pushAddr.split("/");
+        if (null != arr && arr.length > 2) {
+            pushStreamEntity.setApp(arr[arr.length - 2]);
+            pushStreamEntity.setName(arr[arr.length - 1]);
+        }
+        return pushStreamEntity;
     }
 
     @Override
-    public boolean stopMonitor(String ipcAddr) {
-        // 只有判断这个ipc拉流的所有推流都没人在看，才能停止推流
-        if (!streamMap.containsKey(ipcAddr) || !streamInfoCacheService.existStreamInfo(ipcAddr)) {
+    public boolean stopMonitor(Integer id) {
+        String ipcId = String.valueOf(id);
+        // 是否在推流中
+        if (!streamInfoCacheService.existStreamInfo(ipcId)) {
             return false;
         }
-        StreamInfoCache streamInfoCache = streamInfoCacheService.getStreamInfo(ipcAddr);
-        for(Map.Entry<String, PushStreamInfo> entry : streamInfoCache.getPushStreamInfoMap().entrySet()) {
-            if (entry.getValue().getObserverNum() > 0) {
-                log.info("this stream is be used");
-                return false;
-            }
+        StreamInfoEntity streamInfoEntity = streamInfoCacheService.getStreamInfo(ipcId);
+        PushStreamEntity pushStreamEntity = streamInfoEntity.getPushStreamEntity();
+        if (pushStreamEntity.getRtmpObserverNum() > 0) {
+            log.info("this stream is be used for rtmp");
+            return false;
         }
-        // TODO 前面只判断了rtmp流的观看数量，还要判断网页端，即使用http hls播放的数量
-
+        if (pushStreamEntity.getHlsObserverNum() > 0) {
+            log.info("this stream is be used for hls");
+            return false;
+        }
         // 命令本地端停止推流
-        StopMonitorReq stopMonitorReq = new StopMonitorReq();
-        stopMonitorReq.setIpcAddr(ipcAddr);
-        MqResponse response = mqProducer.sendAndReceive(stopMonitorReq, MqResponse.class);
-        // 删除推流信息缓存
-        streamInfoCacheService.removeStreamInfo(ipcAddr);
-        streamMap.remove(ipcAddr);
+        IpcEntity ipcEntity = ipcCacheService.getIpcCache(ipcId);
+        MqResponse response = stopPushStream(ipcEntity);
         log.info("stop monitor response: {}", response);
-        if (response.getStatus() == MqStatus.OK.getCode()) {
-            return true;
-        }
-        return false;
+        return response.getStatus() == MqStatus.OK.getCode();
     }
 
-    //TODO 定时检测某个流是否没有人在播放，如果没有直接停止推流
+    @Override
+    public List<StreamInfoEntity> getStreamInfoList() {
+        return streamInfoCacheService.getAllStreamCache();
+    }
+
+    private MqResponse stopPushStream(IpcEntity ipcEntity) {
+        StopMonitorReq stopMonitorReq = new StopMonitorReq();
+        stopMonitorReq.setIpcAddr(ipcEntity.getRtspAddr());
+        MqResponse response = mqProducer.sendAndReceive(stopMonitorReq, MqResponse.class);
+        // 删除推流信息缓存
+        if (response.getStatus() == MqStatus.OK.getCode()) {
+            streamInfoCacheService.removeStreamInfo(String.valueOf(ipcEntity.getId()));
+        }
+        return response;
+    }
 
     @Override
     public boolean validatePushStreamToken(String token) {
@@ -138,36 +195,6 @@ public class MonitorServiceImpl implements MonitorService {
     }
 
     @Override
-    public void createStreamInfoCache(String pullAddr, String pushAddr) {
-        PushStreamInfo pushStreamInfo = generatePushStreamInfo(pushAddr);
-        String pushStreamInfoKey = generatePushStreamInfoKey(pushStreamInfo.getApp(), pushStreamInfo.getName());
-        if (streamInfoCacheService.existStreamInfo(pullAddr)) {
-            // 拉流已经存在
-            StreamInfoCache streamInfoCache = streamInfoCacheService.getStreamInfo(pullAddr);
-            if (!streamInfoCache.getPushStreamInfoMap().containsKey(pushStreamInfoKey)) {
-                // 不存在这条推流时才创建
-                streamInfoCache.getPushStreamInfoMap().put(pushStreamInfoKey, pushStreamInfo);
-                log.info("{}", streamInfoCache);
-                streamInfoCacheService.setStreamInfo(streamInfoCache);
-            }
-        } else {
-            // 拉流不存在
-            StreamInfoCache streamInfoCache = new StreamInfoCache();
-            streamInfoCache.setPullAddr(pullAddr);
-            Map<String, PushStreamInfo> pushStreamInfoMap = new HashMap<>();
-            pushStreamInfoMap.put(pushStreamInfoKey, pushStreamInfo);
-            streamInfoCache.setPushStreamInfoMap(pushStreamInfoMap);
-            log.info("{}", streamInfoCache);
-            streamInfoCacheService.setStreamInfo(streamInfoCache);
-        }
-
-    }
-
-    private String generatePushStreamInfoKey(String app, String name) {
-        return app + ":" + name;
-    }
-
-    @Override
     public void streamOnPlay(String app, String name) {
         streamOnPlay(app, name, true);
     }
@@ -178,46 +205,20 @@ public class MonitorServiceImpl implements MonitorService {
     }
 
     private void streamOnPlay(String app, String name, boolean onPlay) {
-        String redisKey = findPushStream(app, name);
-        if (!StringUtils.isEmpty(redisKey)) {
-            StreamInfoCache streamInfoCache = streamInfoCacheService.getStreamInfo(redisKey);
-            PushStreamInfo pushStreamInfo = streamInfoCache.
-                    getPushStreamInfoMap().get(generatePushStreamInfoKey(app, name));
-            if (onPlay) {
-                pushStreamInfo.setObserverNum(pushStreamInfo.getObserverNum() + 1);
-            } else {
-                pushStreamInfo.setObserverNum(pushStreamInfo.getObserverNum() - 1);
-            }
-            log.info("{}", streamInfoCache);
-            streamInfoCacheService.setStreamInfo(streamInfoCache);
-        }
-    }
-
-    private String findPushStream(String app, String name) {
-        for(Map.Entry<String, List<String>> entry : streamMap.entrySet()) {
-            log.info("streamMap: [{}]:[{}]", entry.getKey(), entry.getValue());
-            for (String pushAddr : entry.getValue()) {
-                if (pushAddr.contains(app + "/" + name)) {
-                    return entry.getKey();
+        List<StreamInfoEntity> streamInfoEntities = streamInfoCacheService.getAllStreamCache();
+        for(StreamInfoEntity streamInfoEntity : streamInfoEntities) {
+            PushStreamEntity pushStreamEntity = streamInfoEntity.getPushStreamEntity();
+            // 找到对应的推流，操作rtmp流的观看人数
+            if (pushStreamEntity.getApp().equals(app) && pushStreamEntity.getName().equals(name)) {
+                if (onPlay) {
+                    pushStreamEntity.setRtmpObserverNum(pushStreamEntity.getRtmpObserverNum() + 1);
+                } else {
+                    pushStreamEntity.setRtmpObserverNum(pushStreamEntity.getRtmpObserverNum() - 1);
                 }
             }
         }
-        return "";
-    }
-
-    private PushStreamInfo generatePushStreamInfo(String pushAddr) {
-        PushStreamInfo pushStreamInfo = new PushStreamInfo();
-        pushStreamInfo.setPushAddr(pushAddr);
-        String[] arr = pushAddr.split("/");
-        if (null != arr && arr.length > 1) {
-            pushStreamInfo.setApp(arr[arr.length - 2]);
-            pushStreamInfo.setName(arr[arr.length - 1]);
-        }
-        return pushStreamInfo;
-    }
-
-    public static void main(String[] args) {
-        Lists.newArrayList("rtmp://192.168.11.73:9135/hls/1".split("/")).forEach(System.out::println);
+        log.info("{}", streamInfoEntities);
+        streamInfoEntities.forEach(streamInfoEntity -> streamInfoCacheService.setStreamInfo(streamInfoEntity));
     }
 
     public int incrementStreamId() {

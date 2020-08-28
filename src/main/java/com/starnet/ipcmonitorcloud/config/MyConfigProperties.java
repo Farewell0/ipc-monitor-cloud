@@ -16,4 +16,6 @@ import org.springframework.stereotype.Component;
 public class MyConfigProperties {
     private String commandQueueName;
     private String pushToNginxStreamPrefix;
+    private String nginxAccessLogPath;
+    private String loginToken;
 }

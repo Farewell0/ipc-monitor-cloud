@@ -37,6 +37,7 @@ public class AuthInterceptor implements HandlerInterceptor {
             return method.getAnnotation(NoToken.class).required();
         } else {
             String token = request.getHeader("Authorization");
+//            log.info("Authorization: {}, method: {}", token, method.getName());
             boolean flag = userAccountService.validateLoginToken(token);
             if (!flag) {
                 throw new AuthException("Need a right token to access");

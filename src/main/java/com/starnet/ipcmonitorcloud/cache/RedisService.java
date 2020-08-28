@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.io.IOException;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -107,6 +108,11 @@ public class RedisService {
         @Override
         public boolean remove(Object key) {
             return redisTemplate.delete(key);
+        }
+
+        @Override
+        public Set<Object> getKeys(String pattern) {
+            return redisTemplate.keys(pattern);
         }
     }
 }

@@ -1,9 +1,14 @@
 package com.starnet.ipcmonitorcloud.web.service;
 
+import com.starnet.ipcmonitorcloud.entity.IpcEntity;
+import com.starnet.ipcmonitorcloud.entity.PushStreamEntity;
+import com.starnet.ipcmonitorcloud.entity.StreamInfoEntity;
 import com.starnet.ipcmonitorcloud.mq.MqRequest;
-import com.starnet.ipcmonitorcloud.mq.MqResponse;
+import com.starnet.ipcmonitorcloud.web.response.HttpResponse;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+
+import java.util.List;
 
 /**
  * MonitorService
@@ -13,16 +18,27 @@ import lombok.EqualsAndHashCode;
  **/
 public interface MonitorService {
 
-    MqResponse startMonitor(String ipcAddr);
+    List<IpcEntity> getIpcList();
 
-    boolean stopMonitor(String ipcAddr);
+    HttpResponse<PushStreamEntity> startMonitor(Integer id);
+
+    boolean stopMonitor(Integer id);
+
+    List<StreamInfoEntity> getStreamInfoList();
 
     boolean validatePushStreamToken(String token);
 
+    /**
+     * 获取推流认证需要的token
+     * @return token
+     */
     String getPushStreamToken();
 
-    void createStreamInfoCache(String pullAddr, String pushAddr);
-
+    /**
+     * 根据推流的app和name进行播放时的相应操作
+     * @param app 如：hls
+     * @param name 如：stream_1
+     */
     void streamOnPlay(String app, String name);
 
     void streamOnPlayDone(String app, String name);

@@ -13,6 +13,7 @@ public enum MqStatus {
     OK(200, "OK"),
     LOCAL_RESPONSE_ERROR(501, "Receive local server response error"),
     LOCAL_NO_RESPONSE(502, "Receive local server response null"),
+    GET_IPC_LIST_FAIL(502, "Get ipc list fail"),
     /**
      * 未知错误
      */

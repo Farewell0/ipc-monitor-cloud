@@ -1,18 +1,21 @@
 package com.starnet.ipcmonitorcloud.web.controller;
 
-import com.starnet.ipcmonitorcloud.mq.MqResponse;
+import com.starnet.ipcmonitorcloud.entity.IpcEntity;
+import com.starnet.ipcmonitorcloud.entity.PushStreamEntity;
+import com.starnet.ipcmonitorcloud.entity.StreamInfoEntity;
+import com.starnet.ipcmonitorcloud.mq.component.MqIpcComponent;
 import com.starnet.ipcmonitorcloud.web.config.NoToken;
-import com.starnet.ipcmonitorcloud.web.model.HttpResponse;
-import com.starnet.ipcmonitorcloud.web.model.HttpStatus;
+import com.starnet.ipcmonitorcloud.web.response.HttpResponse;
+import com.starnet.ipcmonitorcloud.web.response.HttpStatus;
 import com.starnet.ipcmonitorcloud.web.service.MonitorService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 /**
  * MonitorController
@@ -23,26 +26,46 @@ import javax.servlet.http.HttpServletRequest;
 @Slf4j
 @RestController
 public class MonitorController {
-
     @Autowired
     private MonitorService monitorService;
 
-    @PostMapping("/monitor/start")
-    public HttpResponse startMonitor(String ipcAddr) {
-        if (StringUtils.isEmpty(ipcAddr)) {
-            return new HttpResponse(HttpStatus.REQUEST_PARAMS_ERROR);
+    @GetMapping("/monitor/ipcList")
+    public HttpResponse<List<IpcEntity>> ipcList() {
+        List<IpcEntity> ipcEntityList = monitorService.getIpcList();
+        if (null != ipcEntityList) {
+            return new HttpResponse<>(HttpStatus.OK.getCode(), HttpStatus.OK.getMessage(), ipcEntityList);
         }
-        MqResponse response = monitorService.startMonitor(ipcAddr);
-        return new HttpResponse(response.getStatus(), response.getMessage());
+        return new HttpResponse<>(HttpStatus.GET_IPC_LIST_FAIL);
     }
 
-    @PostMapping("/monitor/stop")
-    public HttpResponse stopMonitor(String ipcAddr) {
-        if (StringUtils.isEmpty(ipcAddr)) {
+    @GetMapping("/monitor/pushStreamInfoList")
+    public HttpResponse<List<StreamInfoEntity>> pushStreamInfoList() {
+        List<StreamInfoEntity> streamInfoEntities = monitorService.getStreamInfoList();
+        if (null != streamInfoEntities) {
+            return new HttpResponse<>(HttpStatus.OK.getCode(), HttpStatus.OK.getMessage(), streamInfoEntities);
+        }
+        return new HttpResponse<>(HttpStatus.GET_PUSH_STREAM_LIST_FAIL);
+    }
+
+    @PostMapping("/monitor/start/{id}")
+    public HttpResponse<PushStreamEntity> startMonitor(@PathVariable Integer id) {
+        if (null == id) {
+            return new HttpResponse<>(HttpStatus.REQUEST_PARAMS_ERROR);
+        }
+        return monitorService.startMonitor(id);
+    }
+
+    @PostMapping("/monitor/stop/{id}")
+    public HttpResponse stopMonitor(@PathVariable Integer id) {
+        if (null == id) {
             return new HttpResponse(HttpStatus.REQUEST_PARAMS_ERROR);
         }
-        boolean flag = monitorService.stopMonitor(ipcAddr);
-        return new HttpResponse(HttpStatus.OK);
+        boolean flag = monitorService.stopMonitor(id);
+        if (flag) {
+            return new HttpResponse(HttpStatus.OK, "本地端已停止推流");
+        } else {
+            return new HttpResponse(HttpStatus.OK, "");
+        }
     }
 
     /**
