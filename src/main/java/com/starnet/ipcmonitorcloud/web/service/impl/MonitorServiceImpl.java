@@ -79,7 +79,7 @@ public class MonitorServiceImpl implements MonitorService {
 
     @Override
     public List<IpcEntity> getIpcList() {
-        return mqIpcComponent.getIpcList();
+        return ipcCacheService.getAllIpcCache();
     }
 
     @Override
